@@ -1,118 +1,78 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, {useEffect, useState} from 'react';
+import {View, Button, Text, Alert} from 'react-native';
+import BackgroundGeolocation from 'react-native-background-geolocation';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
-
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  timestamp?: string;
 }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+const App = () => {
+  const [tracking, setTracking] = useState(false);
+  const [location, setLocation] = useState<LocationData | null>(null);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  useEffect(() => {
+    // Configuración inicial de BackgroundGeolocation
+    BackgroundGeolocation.ready({
+      desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
+      distanceFilter: 10,
+      stopOnTerminate: false,
+      startOnBoot: true,
+      notification: {
+        title: 'Rastreo activo',
+        text: 'Rastreando ubicación en segundo plano',
+      },
+    });
+
+    // Listener para obtener ubicaciones
+    const locationListener = BackgroundGeolocation.onLocation(
+      position => {
+        console.log('📍 Ubicación:', position);
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          timestamp: position.timestamp,
+        });
+      },
+      error => {
+        console.error('Error al obtener ubicación:', error);
+        Alert.alert('Error', 'No se pudo obtener la ubicación.');
+      },
+    );
+
+    return () => {
+      locationListener.remove(); // Elimina listener al desmontar el componente
+      BackgroundGeolocation.removeAllListeners();
+    };
+  }, []);
+
+  const startTracking = () => {
+    setTracking(true);
+    BackgroundGeolocation.start();
+  };
+
+  const stopTracking = () => {
+    setTracking(false);
+    BackgroundGeolocation.stop();
   };
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+    <View style={{flex: 1, justifyContent: 'center', padding: 20}}>
+      <Button
+        title={tracking ? 'Detener Tracking' : 'Iniciar Tracking'}
+        onPress={tracking ? stopTracking : startTracking}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      {location && (
+        <Text style={{marginTop: 20}}>
+          Última ubicación:{'\n'}
+          Lat: {location.latitude}
+          {'\n'}
+          Lon: {location.longitude}
+        </Text>
+      )}
+    </View>
   );
-}
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
+};
 
 export default App;
